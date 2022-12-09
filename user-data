@@ -1,0 +1,117 @@
+#cloud-config
+# do not remove/modify the line above
+
+# enable SSH password authentication
+ssh_pwauth: true
+chpasswd:
+  expire: false
+user:
+  name: cs343
+  lock_passwd: false
+
+  # generate with e.g.: mkpasswd --method=SHA-512 --rounds=4096
+  hashed_passwd: $6$rounds=4096$FD5l8tYNta.ft0r8$AG5JS4jlIVAktr4wNKQYjPB4Y1p0Vhdk9EaJDDoaqSOjPllgd62SL..p2t31Ilzgz32xNmSTwIPN.d2Ye4upH.
+
+  # allow `sudo ...` commands from user `cs343` without a password
+  sudo: ALL=(ALL) NOPASSWD:ALL
+
+# set a password for root user, which has an unusable password by default.
+# if root user is required, prefer `sudo -i`.
+# otherwise, uncomment below and provide a hashed password.
+# refer `user.hashed_passwd` above for instruction.
+#password: <PASSWORD-HASH>
+
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+packages:
+  - jupyterhub
+  - python3
+  - python3-matplotlib
+  - python3-numpy
+  - python3-pandas
+  - python3-pip
+  - python3-plotly
+  - python3-scipy
+  - python3-sklearn
+  - python3-torch
+
+  # homework 4
+  - libc6:i386
+  - libgl1:i386
+  - libncurses5:i386
+  - libogg0:i386
+  - libpython2.7
+  - libsdl1.2debian:i386
+  - libstdc++6:i386
+  - libtheora0:i386
+  - libvorbis0a:i386
+  - libx11-6:i386
+  - libxft2:i386
+
+  # optional, only required if connecting to the VM with xpra
+  - xpra
+
+  # to build libpng
+  - build-essential
+
+bootcmd:
+  # unlike `runcmd`, these run at every boot without `cloud-init-per once`.
+  - [ cloud-init-per, once, enable-i386, dpkg, --add-architecture, i386 ]  # to run NERO 2
+
+write_files:
+  # OpenNERO has a runtime dependency on `libpng` version 1.2. An old binary package is available at mirrors.kernel.org, but it does not install successfully in Ubuntu 22.04.
+  # this script downloads, builds, and installs an appropriate version outside of the system package manager.
+  # The `runcmd` stage, configured below, will run and then delete this script.
+  - content: |
+      #!/bin/sh
+      set -e
+      cd $(mktemp -d)
+      curl -sSfL https://download.sourceforge.net/libpng/libpng-1.2.59.tar.gz \
+          | tar --strip-components=1 -xzf -
+      ./configure --prefix=/usr
+      make
+      make install
+    path: /usr/local/bin/install-libpng
+    permissions: "0755"
+
+  # script to download and install OpenNERO, called and deleted during `runcmd`.
+  - content: |
+      #!/bin/sh
+      set -e
+      mkdir /opt/OpenNERO
+      curl --user cs343:WhistleStop! -sSfL https://www.cs.utexas.edu/users/risto/cs343/private/hw1/Opennero-master/18_04.tar.gz \
+          | tar --strip-components=1 -C /opt/OpenNERO -xzf -
+    path: /usr/local/bin/install-opennero
+    permissions: "0755"
+
+  # script to download and install NERO 2.0, called and deleted during `runcmd`.
+  - content: |
+      #!/bin/sh
+      set -e
+      mkdir /opt/nero2
+      curl -sSfL https://nn.cs.utexas.edu/nero/downloads/nero2_linux_i386.tar.gz \
+          | tar --strip-components=1 -C /opt/nero2 -xzf -
+    path: /usr/local/bin/install-nero2
+    permissions: "0755"
+
+runcmd:
+  # for homework 3, python packages available from Ubuntu repositories are installed above with apt
+  - [ ln, -srf, /usr/bin/python3, /usr/bin/python ]
+  - [ pip, install, pip, setuptools ]
+  - [ pip, install, tensorflow, keras, neat-python ]
+
+  # download and install libpng, OpenNERO, and NERO 2.0
+  - [ install-libpng ]  # built from source
+  - [ install-opennero ]
+  - [ install-nero2 ]
+
+  # delete download/install scripts, no longer needed
+  - [ rm, /usr/local/bin/install-libpng, /usr/local/bin/install-opennero, /usr/local/bin/install-nero2 ]
+
+  # remove stuff only required for building the VM image
+  - [ apt-get, --yes, purge, build-essential ]
+  - [ apt-get, --yes, autoremove ]
+  - [ apt-get, --yes, clean ]
+
+# vim: filetype=yaml
