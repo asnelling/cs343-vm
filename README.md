@@ -7,6 +7,9 @@ familiar with from [Alison Norman][norman]'s [CS 439 Principles of Computer
 Systems][cs439], and theoretically can run on Windows, macOS, and Linux at
 near-native performance.
 
+The VM may also run in VirtualBox, Hyper-V, and other virtualization front-ends
+by importing the root disk image, `disk.img`.
+
 ## Requirements
 
 -   [OVMF Firmware][ovmf] for UEFI booting
